@@ -10,4 +10,8 @@
     <PackageReference Include="MathNet.Numerics" Version="4.15.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FuzzyLogicLibrary\FuzzyLogicLibrary.csproj" />
+  </ItemGroup>
+
 </Project>

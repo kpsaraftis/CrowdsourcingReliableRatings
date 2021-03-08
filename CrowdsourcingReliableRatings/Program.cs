@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics;
+﻿using AI.Fuzzy.Library;
+using MathNet.Numerics;
 using OfficeOpenXml;
 using System;
 using System.Collections.Generic;
@@ -19,7 +20,8 @@ namespace CrowdsourcingReliableRatings
             FileInfo existingFile = new FileInfo(excelFilePath.ToString());
             Console.WriteLine("File Loaded.");
 
-           
+            //Prepare and create fuzzy logic controller
+            CreateFuzzyLogicController();
 
             using (ExcelPackage package = new ExcelPackage(existingFile))
             {
@@ -78,6 +80,55 @@ namespace CrowdsourcingReliableRatings
             Console.WriteLine("Algorithm excecuted successfully");
             Console.WriteLine();
             Console.ReadLine();
+        }
+
+        private static void CreateFuzzyLogicController()
+        {
+            MamdaniFuzzySystem workerWeight = new MamdaniFuzzySystem();
+
+            // Create input variables for the system
+            FuzzyVariable distanceScore = new FuzzyVariable("distanceScore", 0.0, 1.0);
+            distanceScore.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(-0.5, 0.0, 0.5)));
+            distanceScore.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.0, 0.5, 1.0)));
+            distanceScore.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.5, 1.0, 1.5)));
+            workerWeight.Input.Add(distanceScore);
+
+            FuzzyVariable overUnderScore = new FuzzyVariable("overUnderScore", 0.0, 1.0);
+            overUnderScore.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(-0.5, 0.0, 0.5)));
+            overUnderScore.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.0, 0.5, 1.0)));
+            overUnderScore.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.5, 1.0, 1.5)));
+            workerWeight.Input.Add(overUnderScore);
+
+            // Create output variables for the system
+            FuzzyVariable fvWeight = new FuzzyVariable("workerWeight", 0.0, 30.0);
+            fvWeight.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(0.0, 0.1, 0.2)));
+            fvWeight.Terms.Add(new FuzzyTerm("belowAverage", new TriangularMembershipFunction(0.2, 0.3, 0.4)));
+            fvWeight.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.4, 0.5, 0.6)));
+            fvWeight.Terms.Add(new FuzzyTerm("aboveAverage", new TriangularMembershipFunction(0.6, 0.7, 0.8)));
+            fvWeight.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.8, 0.9, 1.0)));
+            workerWeight.Output.Add(fvWeight);
+
+            // Create fuzzy rules
+            MamdaniFuzzyRule rule1 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is low) then workerWeight is low");
+            MamdaniFuzzyRule rule2 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is average) then workerWeight is belowAverage");
+            MamdaniFuzzyRule rule3 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is excellent) then workerWeight is average");
+            MamdaniFuzzyRule rule4 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is low) then workerWeight is belowAverage");
+            MamdaniFuzzyRule rule5 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is average) then workerWeight is average");
+            MamdaniFuzzyRule rule6 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is excellent) then workerWeight is aboveAverage");
+            MamdaniFuzzyRule rule7 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is low) then workerWeight is average");
+            MamdaniFuzzyRule rule8 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is average) then workerWeight is aboveAverage");
+            MamdaniFuzzyRule rule9 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is excellent) then workerWeight is excellent");
+
+            //Add fuzzy rules
+            workerWeight.Rules.Add(rule1);
+            workerWeight.Rules.Add(rule2);
+            workerWeight.Rules.Add(rule3);
+            workerWeight.Rules.Add(rule4);
+            workerWeight.Rules.Add(rule5);
+            workerWeight.Rules.Add(rule6);
+            workerWeight.Rules.Add(rule7);
+            workerWeight.Rules.Add(rule8);
+            workerWeight.Rules.Add(rule9);
         }
 
         private static void CalculateDistanceScore(ExcelPackage package)
