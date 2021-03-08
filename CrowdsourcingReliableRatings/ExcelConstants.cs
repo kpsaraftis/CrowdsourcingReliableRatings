@@ -23,5 +23,6 @@ namespace CrowdsourcingReliableRatings
         public static string Interval = "Interval";
         public static string AverageDebiasedEvaluation = "Average Debiased Evaluation";
         public static string DistanceScore = "Distance Score";
+        public static string FuzzyLogicWeight = "Fuzzy Logic Weight";
     }
 }

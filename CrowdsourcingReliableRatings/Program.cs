@@ -19,10 +19,12 @@ namespace CrowdsourcingReliableRatings
             FileInfo existingFile = new FileInfo(excelFilePath.ToString());
             Console.WriteLine("File Loaded.");
 
+           
+
             using (ExcelPackage package = new ExcelPackage(existingFile))
             {
                 //delete previous worksheets
-                DeletePriviousWorksheets(package);
+                DeletePreviousWorksheets(package);
 
                 //Get the first worksheet in the workbook
                 ExcelWorksheet evaluations = package.Workbook.Worksheets[0];
@@ -62,16 +64,8 @@ namespace CrowdsourcingReliableRatings
                 //Calculate average debiased evaluations and store that info foreach individual worker
                 CalculateAverageDebiasedEvaluations(package);
 
-                for (int workerSheet = 1; workerSheet <= ExcelConstants.FakeCountOfWorkers; workerSheet++)
-                {
-                    var workSheet = package.Workbook.Worksheets[workerSheet];
-                    double sumOfDebiasedSub = 0;
-                    for (int task = 2; task < ExcelConstants.CountOfTasks + 2; task++)
-                    {
-                        sumOfDebiasedSub = sumOfDebiasedSub + Math.Pow(((double)workSheet.Cells[task, 8].Value - (double)workSheet.Cells[task, 12].Value), 2);
-                    }
-                    workSheet.Cells[2, 13].Value = 1 / (1 +(Math.Sqrt(sumOfDebiasedSub)));
-                }
+                //Calculate Distance Score
+                CalculateDistanceScore(package);
 
                 //AutofitCells
                 AutofitCells(package);
@@ -84,6 +78,20 @@ namespace CrowdsourcingReliableRatings
             Console.WriteLine("Algorithm excecuted successfully");
             Console.WriteLine();
             Console.ReadLine();
+        }
+
+        private static void CalculateDistanceScore(ExcelPackage package)
+        {
+            for (int workerSheet = 1; workerSheet <= ExcelConstants.FakeCountOfWorkers; workerSheet++)
+            {
+                var workSheet = package.Workbook.Worksheets[workerSheet];
+                double sumOfDebiasedSub = 0;
+                for (int task = 2; task < ExcelConstants.CountOfTasks + 2; task++)
+                {
+                    sumOfDebiasedSub = sumOfDebiasedSub + Math.Pow(((double)workSheet.Cells[task, 8].Value - (double)workSheet.Cells[task, 12].Value), 2);
+                }
+                workSheet.Cells[2, 13].Value = 1 / (1 + (Math.Sqrt(sumOfDebiasedSub)));
+            }
         }
 
         private static void CalculateAverageDebiasedEvaluations(ExcelPackage package)
@@ -108,7 +116,7 @@ namespace CrowdsourcingReliableRatings
             }
         }
 
-        private static void DeletePriviousWorksheets(ExcelPackage package)
+        private static void DeletePreviousWorksheets(ExcelPackage package)
         {
             int workSheetsCount = package.Workbook.Worksheets.Count;
             for (int k = 1; k < workSheetsCount; k++)
@@ -213,6 +221,7 @@ namespace CrowdsourcingReliableRatings
             workSheet.Cells["K1"].Value = ExcelConstants.OverUnderScore;
             workSheet.Cells["L1"].Value = ExcelConstants.AverageDebiasedEvaluation;
             workSheet.Cells["M1"].Value = ExcelConstants.DistanceScore;
+            workSheet.Cells["N1"].Value = ExcelConstants.FuzzyLogicWeight;
             for (int j = 1; j <= ExcelConstants.CountOfTasks; j++)
             {
                 workSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();
