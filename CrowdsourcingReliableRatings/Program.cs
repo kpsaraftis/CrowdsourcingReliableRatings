@@ -20,9 +20,6 @@ namespace CrowdsourcingReliableRatings
             FileInfo existingFile = new FileInfo(excelFilePath.ToString());
             Console.WriteLine("File Loaded.");
 
-            //Prepare and create fuzzy logic controller
-            CreateFuzzyLogicController();
-
             using (ExcelPackage package = new ExcelPackage(existingFile))
             {
                 //delete previous worksheets
@@ -33,7 +30,7 @@ namespace CrowdsourcingReliableRatings
 
                 //foreach worker create worksheet and make calculations
                 //for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
-                for (int column = 1; column <= ExcelConstants.FakeCountOfWorkers; column++)
+                for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
                 {
 
                     package.Workbook.Worksheets.Add(ExcelConstants.NameOfEachWorkerSheet + column.ToString());
@@ -69,6 +66,9 @@ namespace CrowdsourcingReliableRatings
                 //Calculate Distance Score
                 CalculateDistanceScore(package);
 
+                //Calculate worker weight
+                CalculateWorkerWeight(package);
+
                 //AutofitCells
                 AutofitCells(package);
 
@@ -82,86 +82,82 @@ namespace CrowdsourcingReliableRatings
             Console.ReadLine();
         }
 
-        private static void CreateFuzzyLogicController()
+        private static void CalculateWorkerWeight(ExcelPackage package)
         {
-            MamdaniFuzzySystem workerWeight = new MamdaniFuzzySystem();
+            for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+            {
+                var workSheet = package.Workbook.Worksheets[workerSheet];
 
-            // Create input variables for the system
-            FuzzyVariable distanceScore = new FuzzyVariable("distanceScore", 0.0, 1.0);
-            distanceScore.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(-0.5, 0.0, 0.5)));
-            distanceScore.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.0, 0.5, 1.0)));
-            distanceScore.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.5, 1.0, 1.5)));
-            workerWeight.Input.Add(distanceScore);
+                var overUnderScore = workSheet.Cells[2, 11].Value;
+                var distanceScore = workSheet.Cells[2, 13].Value;
+                var workerWeightFuzzySystem = FuzzyController.GetMamdaniFuzzySystem();
+                FuzzyVariable fvDistanceScore = workerWeightFuzzySystem.InputByName("distanceScore");
+                FuzzyVariable fvOverUnderScore = workerWeightFuzzySystem.InputByName("overUnderScore");
+                FuzzyVariable fvWeight = workerWeightFuzzySystem.OutputByName("workerWeight");
 
-            FuzzyVariable overUnderScore = new FuzzyVariable("overUnderScore", 0.0, 1.0);
-            overUnderScore.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(-0.5, 0.0, 0.5)));
-            overUnderScore.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.0, 0.5, 1.0)));
-            overUnderScore.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.5, 1.0, 1.5)));
-            workerWeight.Input.Add(overUnderScore);
+                // Associate input values with input variables
+                Dictionary<FuzzyVariable, double> inputValues = new Dictionary<FuzzyVariable, double>();
+                inputValues.Add(fvDistanceScore, (double)distanceScore);
+                inputValues.Add(fvOverUnderScore, (double)overUnderScore);
 
-            // Create output variables for the system
-            FuzzyVariable fvWeight = new FuzzyVariable("workerWeight", 0.0, 30.0);
-            fvWeight.Terms.Add(new FuzzyTerm("low", new TriangularMembershipFunction(0.0, 0.1, 0.2)));
-            fvWeight.Terms.Add(new FuzzyTerm("belowAverage", new TriangularMembershipFunction(0.2, 0.3, 0.4)));
-            fvWeight.Terms.Add(new FuzzyTerm("average", new TriangularMembershipFunction(0.4, 0.5, 0.6)));
-            fvWeight.Terms.Add(new FuzzyTerm("aboveAverage", new TriangularMembershipFunction(0.6, 0.7, 0.8)));
-            fvWeight.Terms.Add(new FuzzyTerm("excellent", new TriangularMembershipFunction(0.8, 0.9, 1.0)));
-            workerWeight.Output.Add(fvWeight);
-
-            // Create fuzzy rules
-            MamdaniFuzzyRule rule1 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is low) then workerWeight is low");
-            MamdaniFuzzyRule rule2 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is average) then workerWeight is belowAverage");
-            MamdaniFuzzyRule rule3 = workerWeight.ParseRule("if (distanceScore is low ) and (overUnderScore is excellent) then workerWeight is average");
-            MamdaniFuzzyRule rule4 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is low) then workerWeight is belowAverage");
-            MamdaniFuzzyRule rule5 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is average) then workerWeight is average");
-            MamdaniFuzzyRule rule6 = workerWeight.ParseRule("if (distanceScore is average ) and (overUnderScore is excellent) then workerWeight is aboveAverage");
-            MamdaniFuzzyRule rule7 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is low) then workerWeight is average");
-            MamdaniFuzzyRule rule8 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is average) then workerWeight is aboveAverage");
-            MamdaniFuzzyRule rule9 = workerWeight.ParseRule("if (distanceScore is excellent ) and (overUnderScore is excellent) then workerWeight is excellent");
-
-            //Add fuzzy rules
-            workerWeight.Rules.Add(rule1);
-            workerWeight.Rules.Add(rule2);
-            workerWeight.Rules.Add(rule3);
-            workerWeight.Rules.Add(rule4);
-            workerWeight.Rules.Add(rule5);
-            workerWeight.Rules.Add(rule6);
-            workerWeight.Rules.Add(rule7);
-            workerWeight.Rules.Add(rule8);
-            workerWeight.Rules.Add(rule9);
+                // Calculate result: one output value for each output variable
+                Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
+                workSheet.Cells[2, 14].Value = (double)result[fvWeight];
+            }
         }
 
         private static void CalculateDistanceScore(ExcelPackage package)
         {
-            for (int workerSheet = 1; workerSheet <= ExcelConstants.FakeCountOfWorkers; workerSheet++)
+            var listOfWorkerWeights = new List<double>();
+            for (int worker = 1; worker <= ExcelConstants.CountOfWorkers; worker++)
             {
-                var workSheet = package.Workbook.Worksheets[workerSheet];
-                double sumOfDebiasedSub = 0;
+                var workerSheet = package.Workbook.Worksheets[worker];
+                double sumOfInnerPower = 0;
                 for (int task = 2; task < ExcelConstants.CountOfTasks + 2; task++)
                 {
-                    sumOfDebiasedSub = sumOfDebiasedSub + Math.Pow(((double)workSheet.Cells[task, 8].Value - (double)workSheet.Cells[task, 12].Value), 2);
+                    double sumOfDebiasedEval = 0;
+                    for (int workerSheetStep = 1; workerSheetStep <= ExcelConstants.CountOfWorkers; workerSheetStep++)
+                    {
+                        var workSheet = package.Workbook.Worksheets[workerSheetStep];
+                        sumOfDebiasedEval += (double)workSheet.Cells[task, 8].Value;
+                    }
+
+                    var innerPower = Math.Pow(((double)workerSheet.Cells[task, 8].Value - sumOfDebiasedEval / ExcelConstants.CountOfWorkers), 2);
+                    sumOfInnerPower += innerPower;
                 }
-                workSheet.Cells[2, 13].Value = 1 / (1 + (Math.Sqrt(sumOfDebiasedSub)));
+                //workerSheet.Cells[2, 13].Value = 1 / (1 + (Math.Sqrt(sumOfInnerPower)));
+
+                listOfWorkerWeights.Add(1 / (1 + (Math.Sqrt(sumOfInnerPower))));
             }
+
+            //normalize findings
+            var ratio = 1.0 / listOfWorkerWeights.Max();
+            for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+            {
+                var workSheet = package.Workbook.Worksheets[workerSheet];
+
+                workSheet.Cells[2, 13].Value = listOfWorkerWeights[workerSheet - 1] * ratio;  // (double)result[fvWeight];
+            }
+
         }
 
         private static void CalculateAverageDebiasedEvaluations(ExcelPackage package)
         {
-            for (int column = 1; column <= ExcelConstants.FakeCountOfWorkers; column++)
+            for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
             {
                 for (int taskStep = 2; taskStep < ExcelConstants.CountOfTasks + 2; taskStep++)
                 {
                     double sumDebiasedEvaluation = 0;
-                    for (int debiasedEvaluation = 1; debiasedEvaluation <= ExcelConstants.FakeCountOfWorkers; debiasedEvaluation++)
+                    for (int debiasedEvaluation = 1; debiasedEvaluation <= ExcelConstants.CountOfWorkers; debiasedEvaluation++)
                     {
                         var workSheet = package.Workbook.Worksheets[debiasedEvaluation];
 
                         sumDebiasedEvaluation = sumDebiasedEvaluation + (double)workSheet.Cells[taskStep, 8].Value;
                     }
-                    for (int debiasedEvaluation = 1; debiasedEvaluation <= ExcelConstants.FakeCountOfWorkers; debiasedEvaluation++)
+                    for (int debiasedEvaluation = 1; debiasedEvaluation <= ExcelConstants.CountOfWorkers; debiasedEvaluation++)
                     {
                         var workSheet = package.Workbook.Worksheets[debiasedEvaluation];
-                        workSheet.Cells[taskStep, 12].Value = sumDebiasedEvaluation / ExcelConstants.FakeCountOfWorkers;
+                        workSheet.Cells[taskStep, 12].Value = sumDebiasedEvaluation / ExcelConstants.CountOfWorkers;
                     }
                 }
             }
@@ -178,7 +174,7 @@ namespace CrowdsourcingReliableRatings
 
         private static void AutofitCells(ExcelPackage package)
         {
-            for (int sheet = 1; sheet <= ExcelConstants.FakeCountOfWorkers; sheet++)
+            for (int sheet = 1; sheet <= ExcelConstants.CountOfWorkers; sheet++)
             {
                 var workSheet = package.Workbook.Worksheets[sheet];
                 workSheet.Cells.AutoFitColumns();

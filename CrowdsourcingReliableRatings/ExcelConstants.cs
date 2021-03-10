@@ -4,12 +4,11 @@ namespace CrowdsourcingReliableRatings
 {
     public static class ExcelConstants
     {
-        public static string NameOfExcelFile = "TaskEvaluations.xlsx";
+        public static string NameOfExcelFile = "ReliableTaskEvaluations.xlsx";
         public static string NameOfMainSheet = "Evaluations";
         public static string NameOfTask = "Task";
-        public static int CountOfTasks = 100;
-        public static int CountOfWorkers = 50;
-        public static int FakeCountOfWorkers = 3;
+        public static int CountOfTasks = 132;
+        public static int CountOfWorkers = 70;
         public static string NameOfEachWorkerSheet = "WorkerInfo";
         public static string NameOfEachWorker = "Worker Evaluations ";
         public static string TaskAverage = "TaskAverage";
