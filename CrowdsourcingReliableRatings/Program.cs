@@ -56,7 +56,6 @@ namespace CrowdsourcingReliableRatings
                     //Calculate debiased evaluation
                     DebiasedEvaluation(workSheet, slope, interval);
 
-
                     //Number of times voted higher - lower and Score OverUnder 
                     OverUnderScore(workSheet);
                 }
@@ -72,41 +71,8 @@ namespace CrowdsourcingReliableRatings
                 //Calculate worker weight
                 CalculateWorkerWeight(package);
 
-
-
                 //Create last worksheet with the final evaluations
-                int lastWorkSheet = ExcelConstants.CountOfWorkers + 1;
-                package.Workbook.Worksheets.Add(ExcelConstants.NameOfOutputEvaluations);
-                var evaluationsOutputWorkSheet = package.Workbook.Worksheets[lastWorkSheet];
-                for (int j = 1; j <= ExcelConstants.CountOfTasks; j++)
-                {
-                    evaluationsOutputWorkSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();
-                }
-
-                //for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
-                //{
-                //    evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
-                //    for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
-                //    {
-
-                //        var overUnderScore = workSheet.Cells[2, 11].Value;
-                //        var distanceScore = workSheet.Cells[2, 13].Value;
-                //        var workerWeightFuzzySystem = FuzzyController.GetMamdaniFuzzySystem();
-                //        FuzzyVariable fvDistanceScore = workerWeightFuzzySystem.InputByName("distanceScore");
-                //        FuzzyVariable fvOverUnderScore = workerWeightFuzzySystem.InputByName("overUnderScore");
-                //        FuzzyVariable fvWeight = workerWeightFuzzySystem.OutputByName("workerWeight");
-
-                //        // Associate input values with input variables
-                //        Dictionary<FuzzyVariable, double> inputValues = new Dictionary<FuzzyVariable, double>();
-                //        inputValues.Add(fvDistanceScore, (double)distanceScore);
-                //        inputValues.Add(fvOverUnderScore, (double)overUnderScore);
-
-                //        // Calculate result: one output value for each output variable
-                //        Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
-                //        workSheet.Cells[2, 14].Value = (double)result[fvWeight];
-                //    }
-                //}
-
+                FillEvaluationsWorksheet(package);
 
                 //AutofitCells
                 AutofitCells(package);
@@ -121,6 +87,41 @@ namespace CrowdsourcingReliableRatings
             Console.ReadLine();
         }
 
+        private static void FillEvaluationsWorksheet(ExcelPackage package)
+        {
+            int lastWorkSheet = ExcelConstants.CountOfWorkers + 1;
+            package.Workbook.Worksheets.Add(ExcelConstants.NameOfOutputEvaluations);
+            var evaluationsOutputWorkSheet = package.Workbook.Worksheets[lastWorkSheet];
+            for (int j = 1; j <= ExcelConstants.CountOfTasks; j++)
+            {
+                evaluationsOutputWorkSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();
+            }
+            evaluationsOutputWorkSheet.Cells["B1"].Value = ExcelConstants.TaskAverage;
+            evaluationsOutputWorkSheet.Cells["C1"].Value = ExcelConstants.AverageDebiasedEvaluation;
+            evaluationsOutputWorkSheet.Cells["D1"].Value = ExcelConstants.DeMaliciousAndDebiasedEvaluation;
+
+            for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
+            {
+                evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
+                double finalTaskEvaluation = 0;
+                for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+                {
+                    var workerWorkSheet = package.Workbook.Worksheets[workerSheet];
+                    var workerDebiasedEvaluation = (double)workerWorkSheet.Cells[task + 1, 8].Value;
+                    var workerWeight = (double)workerWorkSheet.Cells[2, 15].Value;
+                    finalTaskEvaluation += workerDebiasedEvaluation * workerWeight;
+                }
+                evaluationsOutputWorkSheet.Cells[task + 1, 4].Value = finalTaskEvaluation;
+            }
+            for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
+            {
+                var workerOneWorkSheet = package.Workbook.Worksheets[1];
+                evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
+                evaluationsOutputWorkSheet.Cells[task + 1, 2].Value = workerOneWorkSheet.Cells[task + 1, 2].Value;
+                evaluationsOutputWorkSheet.Cells[task + 1, 3].Value = workerOneWorkSheet.Cells[task + 1, 12].Value;
+            }
+        }
+
         private static void CalculateWorkerWeight(ExcelPackage package)
         {
             double totalFuzzyLogicWeight = 0.0;
@@ -132,7 +133,7 @@ namespace CrowdsourcingReliableRatings
             for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
             {
                 var workSheet = package.Workbook.Worksheets[workerSheet];
-                workSheet.Cells[2, 15].Value = (double)workSheet.Cells[2, 14].Value * totalFuzzyLogicWeight;
+                workSheet.Cells[2, 15].Value = (double)workSheet.Cells[2, 14].Value / totalFuzzyLogicWeight;
             }
         }
 
@@ -228,7 +229,7 @@ namespace CrowdsourcingReliableRatings
 
         private static void AutofitCells(ExcelPackage package)
         {
-            for (int sheet = 1; sheet <= ExcelConstants.CountOfWorkers; sheet++)
+            for (int sheet = 1; sheet <= ExcelConstants.CountOfWorkers + 1; sheet++)
             {
                 var workSheet = package.Workbook.Worksheets[sheet];
                 workSheet.Cells.AutoFitColumns();

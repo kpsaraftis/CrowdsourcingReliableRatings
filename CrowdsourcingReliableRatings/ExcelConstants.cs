@@ -19,6 +19,7 @@ namespace CrowdsourcingReliableRatings
         public static string OverUnderScore = "Over-Under Score";
         public static string LinearRegressionModel = "Linear Regression Model";
         public static string DebiasedEvaluation = "Debiased Evaluation";
+        public static string DeMaliciousAndDebiasedEvaluation = "De-Malicious and Debiased Evaluation";
         public static string Slope = "Slope";
         public static string Interval = "Interval";
         public static string AverageDebiasedEvaluation = "Average Debiased Evaluation";
