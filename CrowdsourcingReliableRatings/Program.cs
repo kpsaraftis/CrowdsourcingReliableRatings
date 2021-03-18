@@ -83,29 +83,29 @@ namespace CrowdsourcingReliableRatings
                     evaluationsOutputWorkSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();
                 }
 
-                for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
-                {
-                    evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
-                    for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
-                    {
+                //for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
+                //{
+                //    evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
+                //    for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+                //    {
 
-                        var overUnderScore = workSheet.Cells[2, 11].Value;
-                        var distanceScore = workSheet.Cells[2, 13].Value;
-                        var workerWeightFuzzySystem = FuzzyController.GetMamdaniFuzzySystem();
-                        FuzzyVariable fvDistanceScore = workerWeightFuzzySystem.InputByName("distanceScore");
-                        FuzzyVariable fvOverUnderScore = workerWeightFuzzySystem.InputByName("overUnderScore");
-                        FuzzyVariable fvWeight = workerWeightFuzzySystem.OutputByName("workerWeight");
+                //        var overUnderScore = workSheet.Cells[2, 11].Value;
+                //        var distanceScore = workSheet.Cells[2, 13].Value;
+                //        var workerWeightFuzzySystem = FuzzyController.GetMamdaniFuzzySystem();
+                //        FuzzyVariable fvDistanceScore = workerWeightFuzzySystem.InputByName("distanceScore");
+                //        FuzzyVariable fvOverUnderScore = workerWeightFuzzySystem.InputByName("overUnderScore");
+                //        FuzzyVariable fvWeight = workerWeightFuzzySystem.OutputByName("workerWeight");
 
-                        // Associate input values with input variables
-                        Dictionary<FuzzyVariable, double> inputValues = new Dictionary<FuzzyVariable, double>();
-                        inputValues.Add(fvDistanceScore, (double)distanceScore);
-                        inputValues.Add(fvOverUnderScore, (double)overUnderScore);
+                //        // Associate input values with input variables
+                //        Dictionary<FuzzyVariable, double> inputValues = new Dictionary<FuzzyVariable, double>();
+                //        inputValues.Add(fvDistanceScore, (double)distanceScore);
+                //        inputValues.Add(fvOverUnderScore, (double)overUnderScore);
 
-                        // Calculate result: one output value for each output variable
-                        Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
-                        workSheet.Cells[2, 14].Value = (double)result[fvWeight];
-                    }
-                }
+                //        // Calculate result: one output value for each output variable
+                //        Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
+                //        workSheet.Cells[2, 14].Value = (double)result[fvWeight];
+                //    }
+                //}
 
 
                 //AutofitCells
