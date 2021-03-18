@@ -66,8 +66,47 @@ namespace CrowdsourcingReliableRatings
                 //Calculate Distance Score
                 CalculateDistanceScore(package);
 
+                //Calculate fuzzy logic weight
+                CalculateFuzzyLogicWeight(package);
+
                 //Calculate worker weight
                 CalculateWorkerWeight(package);
+
+
+
+                //Create last worksheet with the final evaluations
+                int lastWorkSheet = ExcelConstants.CountOfWorkers + 1;
+                package.Workbook.Worksheets.Add(ExcelConstants.NameOfOutputEvaluations);
+                var evaluationsOutputWorkSheet = package.Workbook.Worksheets[lastWorkSheet];
+                for (int j = 1; j <= ExcelConstants.CountOfTasks; j++)
+                {
+                    evaluationsOutputWorkSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();
+                }
+
+                for (int task = 1; task <= ExcelConstants.CountOfTasks; task++)
+                {
+                    evaluationsOutputWorkSheet.Cells[task + 1, 1].Value = ExcelConstants.NameOfTask + " " + task.ToString();
+                    for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+                    {
+
+                        var overUnderScore = workSheet.Cells[2, 11].Value;
+                        var distanceScore = workSheet.Cells[2, 13].Value;
+                        var workerWeightFuzzySystem = FuzzyController.GetMamdaniFuzzySystem();
+                        FuzzyVariable fvDistanceScore = workerWeightFuzzySystem.InputByName("distanceScore");
+                        FuzzyVariable fvOverUnderScore = workerWeightFuzzySystem.InputByName("overUnderScore");
+                        FuzzyVariable fvWeight = workerWeightFuzzySystem.OutputByName("workerWeight");
+
+                        // Associate input values with input variables
+                        Dictionary<FuzzyVariable, double> inputValues = new Dictionary<FuzzyVariable, double>();
+                        inputValues.Add(fvDistanceScore, (double)distanceScore);
+                        inputValues.Add(fvOverUnderScore, (double)overUnderScore);
+
+                        // Calculate result: one output value for each output variable
+                        Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
+                        workSheet.Cells[2, 14].Value = (double)result[fvWeight];
+                    }
+                }
+
 
                 //AutofitCells
                 AutofitCells(package);
@@ -83,6 +122,21 @@ namespace CrowdsourcingReliableRatings
         }
 
         private static void CalculateWorkerWeight(ExcelPackage package)
+        {
+            double totalFuzzyLogicWeight = 0.0;
+            for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+            {
+                var workSheet = package.Workbook.Worksheets[workerSheet];
+                totalFuzzyLogicWeight += (double)workSheet.Cells[2, 14].Value;
+            }
+            for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
+            {
+                var workSheet = package.Workbook.Worksheets[workerSheet];
+                workSheet.Cells[2, 15].Value = (double)workSheet.Cells[2, 14].Value * totalFuzzyLogicWeight;
+            }
+        }
+
+        private static void CalculateFuzzyLogicWeight(ExcelPackage package)
         {
             for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
             {
@@ -269,6 +323,7 @@ namespace CrowdsourcingReliableRatings
             workSheet.Cells["L1"].Value = ExcelConstants.AverageDebiasedEvaluation;
             workSheet.Cells["M1"].Value = ExcelConstants.DistanceScore;
             workSheet.Cells["N1"].Value = ExcelConstants.FuzzyLogicWeight;
+            workSheet.Cells["O1"].Value = ExcelConstants.WorkerWeight;
             for (int j = 1; j <= ExcelConstants.CountOfTasks; j++)
             {
                 workSheet.Cells[j + 1, 1].Value = ExcelConstants.NameOfTask + " " + j.ToString();

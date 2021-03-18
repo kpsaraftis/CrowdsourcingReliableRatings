@@ -11,6 +11,7 @@ namespace CrowdsourcingReliableRatings
         public static int CountOfWorkers = 70;
         public static string NameOfEachWorkerSheet = "WorkerInfo";
         public static string NameOfEachWorker = "Worker Evaluations ";
+        public static string NameOfOutputEvaluations = "Evaluations Output";
         public static string TaskAverage = "TaskAverage";
         public static string DifferenceFromAverage = "Difference From Average";
         public static string VotedHigherCount = "Voted Higher Count";
@@ -23,5 +24,6 @@ namespace CrowdsourcingReliableRatings
         public static string AverageDebiasedEvaluation = "Average Debiased Evaluation";
         public static string DistanceScore = "Distance Score";
         public static string FuzzyLogicWeight = "Fuzzy Logic Weight";
+        public static string WorkerWeight = "Worker Weight";
     }
 }
