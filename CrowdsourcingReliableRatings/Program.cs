@@ -1,4 +1,5 @@
 ﻿using AI.Fuzzy.Library;
+using CrowdsourcingReliableRatings.Models;
 using MathNet.Numerics;
 using OfficeOpenXml;
 using System;
@@ -29,7 +30,6 @@ namespace CrowdsourcingReliableRatings
                 ExcelWorksheet evaluations = package.Workbook.Worksheets[0];
 
                 //foreach worker create worksheet and make calculations
-                //for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
                 for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
                 {
 
@@ -74,6 +74,20 @@ namespace CrowdsourcingReliableRatings
                 //Create last worksheet with the final evaluations
                 FillEvaluationsWorksheet(package);
 
+                //Create ChartAmountOfAnswersPerRating
+                ChartAmountOfAnswersPerRating(package);
+
+                //Create ChartAverageRatingPerUser
+                ChartAverageRatingPerUser(package);
+
+                //RMSE
+                CalculateRMSE(package);
+
+                //Rmse varying population - Use only when altering CountOfWorkers and comment out CalculateRMSE
+                //CalculateRMSEVaryingPopulation(package);
+
+
+
                 //AutofitCells
                 AutofitCells(package);
 
@@ -85,6 +99,232 @@ namespace CrowdsourcingReliableRatings
             Console.WriteLine("Algorithm excecuted successfully");
             Console.WriteLine();
             Console.ReadLine();
+        }
+
+        private static void CalculateRMSEVaryingPopulation(ExcelPackage package)
+        {
+            int chartRMSEVaryingSampleSizeWorkSheetPosition = ExcelConstants.CountOfWorkers + 4;
+            package.Workbook.Worksheets.Add(ExcelConstants.ChartRMSESampleSize);
+            var chartRMSEVaryingSampleSize = package.Workbook.Worksheets[chartRMSEVaryingSampleSizeWorkSheetPosition];
+            chartRMSEVaryingSampleSize.Cells[1, 1].Value = "User Population";
+            chartRMSEVaryingSampleSize.Cells[1, 2].Value = "RMSE Random";
+            chartRMSEVaryingSampleSize.Cells[1, 3].Value = "RMSE Average";
+            chartRMSEVaryingSampleSize.Cells[1, 4].Value = "RMSE Recommended";
+            var workerInfoList = new List<WorkerInfo>();
+            int sampleSize = 15;
+            for (int workerStep = 1; workerStep <= ExcelConstants.CountOfWorkers; workerStep++)
+            {
+                var workerSheet = package.Workbook.Worksheets[workerStep];
+                var workerInfo = new WorkerInfo((double)workerSheet.Cells[2, 14].Value);
+                for (int taskStep = 2; taskStep < ExcelConstants.CountOfTasks + 2; taskStep++)
+                {
+                    workerInfo.evaluations.Add(
+                        new Evaluation(taskStep - 1, (double)workerSheet.Cells[taskStep, 2].Value, (double)workerSheet.Cells[taskStep, 3].Value, (double)workerSheet.Cells[taskStep, 8].Value)
+                        );
+                }
+                workerInfoList.Add(workerInfo);
+            }
+            for (int population = 30; population < 71; population += 20)
+            {
+                var topKWorkers = workerInfoList
+                    .OrderByDescending(o => o.FuzzyLogicWeight)
+                    .Take(sampleSize)
+                    .ToList();
+
+                //i want 3 values: Random, Average from users with high score, our approach
+                var listOfRandomInt = new List<int>();
+                for (int i = 0; i < sampleSize; i++)
+                {
+                    int randomNumber = 0;
+                    do
+                    {
+                        var ran = new Random();
+                        randomNumber = ran.Next(0, ExcelConstants.CountOfWorkers);
+                    } while (listOfRandomInt.Any(a => a == randomNumber));
+                    listOfRandomInt.Add(randomNumber);
+                }
+
+                double randomRMSE = 0, averageRMSE = 0, recommendedRMSE = 0;
+
+                List<WorkerInfo> randomWorkers = workerInfoList.Where((worker, index) => listOfRandomInt.Contains(index)).ToList();
+                GetRMSE(topKWorkers, randomWorkers, ref randomRMSE, ref averageRMSE, ref recommendedRMSE);
+
+                listOfRandomInt.Clear();
+                int step = (population - 10) / 20 + 1;
+                chartRMSEVaryingSampleSize.Cells[step, 1].Value = population;
+                chartRMSEVaryingSampleSize.Cells[step, 2].Value = randomRMSE;
+                chartRMSEVaryingSampleSize.Cells[step, 3].Value = averageRMSE;
+                chartRMSEVaryingSampleSize.Cells[step, 4].Value = recommendedRMSE;
+            }
+        }
+
+        private static void CalculateRMSE(ExcelPackage package)
+        {
+            var workerInfoList = new List<WorkerInfo>();
+            //var evaluationsSheet = package.Workbook.Worksheets[0];
+            int chartRMSESampleSizeWorkSheetPosition = ExcelConstants.CountOfWorkers + 4;
+            package.Workbook.Worksheets.Add(ExcelConstants.ChartRMSESampleSize);
+            var chartRMSESampleSize = package.Workbook.Worksheets[chartRMSESampleSizeWorkSheetPosition];
+
+            chartRMSESampleSize.Cells[1, 1].Value = "Sample Size";
+            chartRMSESampleSize.Cells[1, 2].Value = "RMSE Random";
+            chartRMSESampleSize.Cells[1, 3].Value = "RMSE Average";
+            chartRMSESampleSize.Cells[1, 4].Value = "RMSE Recommended";
+            for (int workerStep = 1; workerStep <= ExcelConstants.CountOfWorkers; workerStep++)
+            {
+                var workerSheet = package.Workbook.Worksheets[workerStep];
+                var workerInfo = new WorkerInfo((double)workerSheet.Cells[2, 14].Value);
+                for (int taskStep = 2; taskStep < ExcelConstants.CountOfTasks + 2; taskStep++)
+                {
+                    workerInfo.evaluations.Add(
+                        new Evaluation(taskStep - 1, (double)workerSheet.Cells[taskStep, 2].Value, (double)workerSheet.Cells[taskStep, 3].Value, (double)workerSheet.Cells[taskStep, 8].Value)
+                        );
+                }
+                workerInfoList.Add(workerInfo);
+            }
+            for (int topK = 5; topK < 71; topK += 5)
+            {
+                var topKWorkers = workerInfoList
+                    .OrderByDescending(o => o.FuzzyLogicWeight)
+                    .Take(topK)
+                    .ToList();
+
+                //i want 3 values: Random, Average from users with high score, our approach
+                var listOfRandomInt = new List<int>();
+                for (int i = 0; i < topK; i++)
+                {
+                    int randomNumber = 0;
+                    do
+                    {
+                        var ran = new Random();
+                        randomNumber = ran.Next(0, ExcelConstants.CountOfWorkers);
+                    } while (listOfRandomInt.Any(a => a == randomNumber));
+                    listOfRandomInt.Add(randomNumber);
+                }
+
+                double randomRMSE = 0, averageRMSE = 0, recommendedRMSE = 0;
+
+                List<WorkerInfo> randomWorkers = workerInfoList.Where((worker, index) => listOfRandomInt.Contains(index)).ToList();
+                GetRMSE(topKWorkers, randomWorkers, ref randomRMSE, ref averageRMSE, ref recommendedRMSE);
+
+                listOfRandomInt.Clear();
+                int step = topK / 5 + 1;
+                chartRMSESampleSize.Cells[step, 1].Value = topK;
+                chartRMSESampleSize.Cells[step, 2].Value = randomRMSE;
+                chartRMSESampleSize.Cells[step, 3].Value = averageRMSE;
+                chartRMSESampleSize.Cells[step, 4].Value = recommendedRMSE;
+            }
+        }
+
+        private static void GetRMSE(List<WorkerInfo> topKWorkers, List<WorkerInfo> randomWorkers, ref double randomRMSE, ref double averageRMSE, ref double recommendedRMSE)
+        {
+            //sqrt((a-b)/c)
+            //b is workerEvaluation.TaskAverage
+            double innerPow = 0;
+            for (int taskStep = 1; taskStep < ExcelConstants.CountOfTasks; taskStep++)
+            {
+                //foreach taskstep find average
+                double workerEvaluationsSum = 0;
+                foreach (var workerInfo in randomWorkers)
+                {
+                    workerEvaluationsSum += workerInfo.evaluations[taskStep - 1].WorkerEvaluation;
+                }
+                double workerEvaluationsAverage = workerEvaluationsSum / randomWorkers.Count;
+                innerPow += Math.Pow(workerEvaluationsAverage - randomWorkers.First().evaluations[taskStep - 1].TaskAverage, 2);
+            }
+            randomRMSE = Math.Sqrt(innerPow / ExcelConstants.CountOfTasks);
+
+
+            innerPow = 0;
+            for (int taskStep = 1; taskStep < ExcelConstants.CountOfTasks; taskStep++)
+            {
+                //foreach taskstep find average
+                double workerEvaluationsSum = 0;
+                foreach (var workerInfo in topKWorkers)
+                {
+                    workerEvaluationsSum += workerInfo.evaluations[taskStep - 1].WorkerEvaluation;
+                }
+                double workerEvaluationsAverage = workerEvaluationsSum / topKWorkers.Count;
+                innerPow += Math.Pow(workerEvaluationsAverage - topKWorkers.First().evaluations[taskStep - 1].TaskAverage, 2);
+            }
+            averageRMSE = Math.Sqrt(innerPow / ExcelConstants.CountOfTasks);
+
+            innerPow = 0;
+            //first find weight
+            double totalWeight = 0;
+            foreach (var workerInfo in topKWorkers)
+            {
+                totalWeight += workerInfo.FuzzyLogicWeight;
+            }
+            foreach (var workerInfo in topKWorkers)
+            {
+                workerInfo.TotalFuzzyLogicWeight = totalWeight;
+            }
+
+            for (int taskStep = 1; taskStep < ExcelConstants.CountOfTasks; taskStep++)
+            {
+                //foreach taskstep find average
+                double workerEvaluationsAverage = 0;
+                foreach (var workerInfo in topKWorkers)
+                {
+                    workerEvaluationsAverage += workerInfo.evaluations[taskStep - 1].WorkerDebiasedEvaluation * workerInfo.AssignedWeight;
+                }
+                //double workerEvaluationsAverage = workerEvaluationsSum / topKWorkers.Count;
+                innerPow += Math.Pow(workerEvaluationsAverage - topKWorkers.First().evaluations[taskStep - 1].TaskAverage, 2);
+            }
+            recommendedRMSE = Math.Sqrt(innerPow / ExcelConstants.CountOfTasks);
+        }
+
+        private static void ChartAverageRatingPerUser(ExcelPackage package)
+        {
+            var evaluationsSheet = package.Workbook.Worksheets[0];
+            int chartAverageRatingPerUserWorkSheetPosition = ExcelConstants.CountOfWorkers + 3;
+            package.Workbook.Worksheets.Add(ExcelConstants.ChartAverageRatingPerUser);
+            var chartAverageRatingPerUser = package.Workbook.Worksheets[chartAverageRatingPerUserWorkSheetPosition];
+            chartAverageRatingPerUser.Cells[1, 1].Value = "Average Rating per User";
+            chartAverageRatingPerUser.Cells[1, 2].Value = "Average Rating";
+            //count ratings
+            var averageUserRatingList = new List<double>();
+            double averageUserRating = 0;
+            for (int workerStep = 2; workerStep <= ExcelConstants.CountOfWorkers + 1; workerStep++)
+            {
+                for (int taskStep = 2; taskStep < ExcelConstants.CountOfTasks + 2; taskStep++)
+                {
+                    averageUserRating += (double)evaluationsSheet.Cells[taskStep, workerStep].Value;
+                }
+                averageUserRatingList.Add(averageUserRating / ExcelConstants.CountOfTasks);
+                averageUserRating = 0;
+            }
+            averageUserRatingList.Sort();
+            for (int workerStep = 2; workerStep <= ExcelConstants.CountOfWorkers + 1; workerStep++)
+            {
+                chartAverageRatingPerUser.Cells[workerStep, 1].Value = workerStep - 1;
+                chartAverageRatingPerUser.Cells[workerStep, 2].Value = averageUserRatingList[workerStep - 2];
+            }
+        }
+
+        private static void ChartAmountOfAnswersPerRating(ExcelPackage package)
+        {
+            var evaluationsSheet = package.Workbook.Worksheets[0];
+            int chartOneWorkSheetPosition = ExcelConstants.CountOfWorkers + 2;
+            package.Workbook.Worksheets.Add(ExcelConstants.ChartAmountOfAnswersPerRating);
+            var ChartAmountOfAnswersPerRating = package.Workbook.Worksheets[chartOneWorkSheetPosition];
+            ChartAmountOfAnswersPerRating.Cells[1, 1].Value = "Ratings";
+            ChartAmountOfAnswersPerRating.Cells[1, 2].Value = "Amount of answers per lane change request";
+            //count ratings
+            var listOfRatings = new List<double>();
+            for (int column = 2; column <= ExcelConstants.CountOfWorkers + 1; column++)
+            {
+                for (int taskStep = 2; taskStep < ExcelConstants.CountOfTasks + 2; taskStep++)
+                {
+                    listOfRatings.Add((double)evaluationsSheet.Cells[taskStep, column].Value);
+                }
+            }
+            for (int i = 1; i < 6; i++)
+            {
+                ChartAmountOfAnswersPerRating.Cells[i + 1, 1].Value = i;
+                ChartAmountOfAnswersPerRating.Cells[i + 1, 2].Value = listOfRatings.Where(w => w == i).Count();
+            }
         }
 
         private static void FillEvaluationsWorksheet(ExcelPackage package)
