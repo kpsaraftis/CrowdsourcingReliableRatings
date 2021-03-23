@@ -86,6 +86,8 @@ namespace CrowdsourcingReliableRatings
                 //Rmse varying population - Use only when altering CountOfWorkers and comment out CalculateRMSE
                 //CalculateRMSEVaryingPopulation(package);
 
+                //gather fuzzylogic weight foreach worker
+                GatherFuzzyLogicWeightsForeachWorker(package);
 
 
                 //AutofitCells
@@ -99,6 +101,28 @@ namespace CrowdsourcingReliableRatings
             Console.WriteLine("Algorithm excecuted successfully");
             Console.WriteLine();
             Console.ReadLine();
+        }
+
+        private static void GatherFuzzyLogicWeightsForeachWorker(ExcelPackage package)
+        {
+            int chartWeightPerUserWorkSheetPosition = ExcelConstants.CountOfWorkers + 5;
+            package.Workbook.Worksheets.Add(ExcelConstants.ChartWeightPerUser);
+            var chartWeightPerUser = package.Workbook.Worksheets[chartWeightPerUserWorkSheetPosition];
+            chartWeightPerUser.Cells[1, 1].Value = "Worker";
+            chartWeightPerUser.Cells[1, 2].Value = "Fuzzy logic Weight";
+            //count ratings
+            var userWeightList = new List<double>();
+            for (int workerStep = 1; workerStep <= ExcelConstants.CountOfWorkers; workerStep++)
+            {
+                var worksheet = package.Workbook.Worksheets[workerStep];
+                userWeightList.Add((double)worksheet.Cells[2, 14].Value);
+            }
+            userWeightList.Sort();
+            for (int workerStep = 2; workerStep <= ExcelConstants.CountOfWorkers + 1; workerStep++)
+            {
+                chartWeightPerUser.Cells[workerStep, 1].Value = workerStep - 1;
+                chartWeightPerUser.Cells[workerStep, 2].Value = userWeightList[workerStep - 2];
+            }
         }
 
         private static void CalculateRMSEVaryingPopulation(ExcelPackage package)

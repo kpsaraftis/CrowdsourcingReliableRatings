@@ -28,6 +28,7 @@ namespace CrowdsourcingReliableRatings
         public static string WorkerWeight = "Worker Weight";
         public static string ChartAmountOfAnswersPerRating = "Chart Amount Of Answers Per Rating";
         public static string ChartAverageRatingPerUser = "Chart average rating per user";
+        public static string ChartWeightPerUser = "Chart weight per user";
         public static string ChartRMSESampleSize = "Chart RMSE sample size";
     }
 }
