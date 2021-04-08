@@ -392,6 +392,10 @@ namespace CrowdsourcingReliableRatings
             for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
             {
                 var workSheet = package.Workbook.Worksheets[workerSheet];
+                if (Double.IsNaN((double)workSheet.Cells[2, 14].Value))
+                {
+                    var k = 3;
+                }
                 totalFuzzyLogicWeight += (double)workSheet.Cells[2, 14].Value;
             }
             for (int workerSheet = 1; workerSheet <= ExcelConstants.CountOfWorkers; workerSheet++)
@@ -421,7 +425,8 @@ namespace CrowdsourcingReliableRatings
 
                 // Calculate result: one output value for each output variable
                 Dictionary<FuzzyVariable, double> result = workerWeightFuzzySystem.Calculate(inputValues);
-                workSheet.Cells[2, 14].Value = (double)result[fvWeight];
+
+                workSheet.Cells[2, 14].Value = Double.IsNaN((double)result[fvWeight]) ? 0.001 : (object)(double)result[fvWeight];
             }
         }
 
