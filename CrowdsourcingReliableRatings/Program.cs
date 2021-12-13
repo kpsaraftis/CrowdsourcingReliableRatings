@@ -1,5 +1,6 @@
 ﻿using AI.Fuzzy.Library;
 using CrowdsourcingReliableRatings.Models;
+using CrowdsourcingReliableRatings.V2_Algorithm;
 using MathNet.Numerics;
 using OfficeOpenXml;
 using System;
@@ -12,6 +13,120 @@ namespace CrowdsourcingReliableRatings
     class Program
     {
         static void Main(string[] args)
+        {
+            Console.WriteLine("Select version of algorithm to execute (type 1 for version 1 or 2 for version 2).");
+
+            string userInput = Console.ReadLine();
+            int version;
+            while (!Int32.TryParse(userInput, out version) || (Int32.TryParse(userInput, out version) && !(version == 1 || version == 2)))
+            {
+                Console.WriteLine("Not a valid input, try again.");
+                userInput = Console.ReadLine();
+            }
+
+            if (version == 1)
+            {
+                V1_Algorithm();
+            }
+            else if(version == 2)
+            {
+                V2_Algorithm();
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Algorithm excecuted successfully");
+            Console.WriteLine();
+            Console.ReadLine();
+        }
+
+        private static void V2_Algorithm()
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            string debugPath = Directory.GetCurrentDirectory();
+            var excelDirectory = Directory.GetParent(debugPath).Parent.Parent + ExcelV2Constants.V2_Directory;
+            Console.WriteLine("Load the text file...");
+            var excelFilePath = new DirectoryInfo(String.Concat(excelDirectory, "/", ExcelV2Constants.NameOfExcelFile));
+            FileInfo existingFile = new FileInfo(excelFilePath.ToString());
+            Console.WriteLine("File Loaded.");
+
+            using (ExcelPackage package = new ExcelPackage(existingFile))
+            {
+                //delete previous worksheets
+                DeletePreviousWorksheets(package);
+
+                //Get the first worksheet in the workbook
+                ExcelWorksheet evaluations = package.Workbook.Worksheets[0];
+
+                //foreach worker create worksheet and make calculations
+                for (int column = 1; column <= ExcelConstants.CountOfWorkers; column++)
+                {
+
+                    package.Workbook.Worksheets.Add(ExcelConstants.NameOfEachWorkerSheet + column.ToString());
+                    var workSheet = package.Workbook.Worksheets[column];
+
+                    // create headers
+                    CreateHeaders(column, workSheet);
+
+                    //Calculate average
+                    CalculateAverage(evaluations, workSheet);
+
+                    //Map worker's evaluations
+                    MapWorkerEvaluations(evaluations, column, workSheet);
+
+                    //calculate difference from average
+                    DifferenceFromAverage(evaluations, workSheet);
+
+                    //Calculate linear model
+                    double slope = 0;
+                    double interval = 0;
+                    FindLinearModel(workSheet, ref slope, ref interval);
+
+                    //Calculate debiased evaluation
+                    DebiasedEvaluation(workSheet, slope, interval);
+
+                    //Number of times voted higher - lower and Score OverUnder 
+                    OverUnderScore(workSheet);
+                }
+                //Calculate average debiased evaluations and store that info foreach individual worker
+                CalculateAverageDebiasedEvaluations(package);
+
+                //Calculate Distance Score
+                CalculateDistanceScore(package);
+
+                //Calculate fuzzy logic weight
+                CalculateFuzzyLogicWeight(package);
+
+                //Calculate worker weight
+                CalculateWorkerWeight(package);
+
+                //Create last worksheet with the final evaluations
+                FillEvaluationsWorksheet(package);
+
+                //Create ChartAmountOfAnswersPerRating
+                ChartAmountOfAnswersPerRating(package);
+
+                //Create ChartAverageRatingPerUser
+                ChartAverageRatingPerUser(package);
+
+                //RMSE
+                CalculateRMSE(package);
+
+                //Rmse varying population - Use only when altering CountOfWorkers and comment out CalculateRMSE
+                //CalculateRMSEVaryingPopulation(package);
+
+                //gather fuzzylogic weight foreach worker
+                GatherFuzzyLogicWeightsForeachWorker(package);
+
+
+                //AutofitCells
+                AutofitCells(package);
+
+                //save workbook
+                package.Save();
+            } // the using statement automatically calls Dispose() which closes the package.
+        }
+
+        private static void V1_Algorithm()
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             string debugPath = Directory.GetCurrentDirectory();
@@ -96,11 +211,6 @@ namespace CrowdsourcingReliableRatings
                 //save workbook
                 package.Save();
             } // the using statement automatically calls Dispose() which closes the package.
-
-            Console.WriteLine();
-            Console.WriteLine("Algorithm excecuted successfully");
-            Console.WriteLine();
-            Console.ReadLine();
         }
 
         private static void GatherFuzzyLogicWeightsForeachWorker(ExcelPackage package)
